@@ -1,0 +1,96 @@
+version: "3"
+
+networks:
+  laravel:
+
+services:
+  #  redis:
+  #    image: redis:alpine
+  #    depends_on:
+  #      - postgres
+
+  postgresExact:
+    image: postgres:13.3-alpine
+    restart: unless-stopped
+    container_name: postgresExact
+    volumes:
+      - pgdataInterview:/var/lib/postgresql/data
+    #      - "./postgres/var/lib/postgresql/data"
+    environment:
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=postgres
+      - POSTGRES_DB=postgres
+      - POSTGRES_HOST_AUTH_METHOD=trust
+    ports:
+      - "6444:5432"
+    networks:
+      - laravel
+
+  pgadmin:
+    container_name: pgadmin
+    image: dpage/pgadmin4
+    restart: always
+    depends_on:
+      - postgresExact
+    environment:
+      PGADMIN_DEFAULT_EMAIL: test@gmail.com
+      PGADMIN_DEFAULT_PASSWORD: test
+    ports:
+      - "5050:80"
+    volumes:
+      - pgadmindata:/var/lib/pgadmin
+    networks:
+      - laravel
+
+  nginx:
+    image: nginx:stable-alpine
+    ports:
+      #   - "8080:80"
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./:/var/www
+      - ./nginx/conf.d/:/etc/nginx/conf.d
+    #   - ./nginx/default.conf/:/etc/nginx/conf.d/default.conf/
+    depends_on:
+      - php
+      - postgresExact
+    networks:
+      - laravel
+
+  php:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    volumes:
+      - ./:/var/www
+      - ./php/local.ini:/usr/local/etc/php/conf.d/local.ini
+    container_name: php
+    working_dir: /var/www
+    ports:
+      - "9000:9000"
+    depends_on:
+      - postgresExact
+    networks:
+      - laravel
+
+  artisan:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: artisan
+    volumes:
+      - ./:/var/www
+    depends_on:
+      - postgresExact
+    stdin_open: true
+    tty: true
+    working_dir: /var/www
+    #    entrypoint: ['php', '/var/www/html/artisan']
+    networks:
+      - laravel
+
+volumes:
+  pgdataInterview:
+    external: true
+  pgadmindata:
